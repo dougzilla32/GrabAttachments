@@ -1,4 +1,4 @@
-![badge-platforms](https://img.shields.io/badge/platform-osx-blue.svg)
+![badge-platforms](https://img.shields.io/badge/platforms-osx,%20gmail-blue.svg)
 ![badge-languages](https://img.shields.io/badge/languages-bash-orange.svg)
 ![badge-requirements](https://img.shields.io/badge/requirements-Homebrew,%20curl,%20wget%20%26%20mpack-green.svg)
 
