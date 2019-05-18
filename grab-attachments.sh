@@ -93,22 +93,6 @@ export PATH="/usr/local/bin:$PATH"
 # Process messages
 #
 
-mkdir -p "$DOWNLOAD_DIR"
-mkdir -p "$DOWNLOAD_DIR_TMP"
-cd "$DOWNLOAD_DIR_TMP"
-
-# Abort the script if there are leftover files.
-# Commenting out because it's ok to overwrite the leftovers.
-# SUFFIXES="eml EML desc DESC"
-# shopt -s nullglob
-# for s in $SUFFIXES ; do
-#     if [ -n "$(trim *.$s)" ] ; then
-#         echo Error: found files with \"$s\" suffix >&2
-#         exit 1
-#     fi
-# done
-# shopt -u nullglob
-
 # Ensure Homebrew, Wget and Mpack are installed
 set +e
 (hash brew 2>/dev/null)
@@ -135,6 +119,26 @@ if [ $HAS_BREW != 0 -o $HAS_MPACK != 0 -o $HAS_WGET != 0 ] ; then
     hash mpack 2>/dev/null || { echo "" ; echo "Installing 'Mpack'" ; brew install mpack ; }
     echo ""
 fi
+
+mkdir -p "$DOWNLOAD_DIR"
+mkdir -p "$DOWNLOAD_DIR_TMP"
+cd "$DOWNLOAD_DIR_TMP"
+finish() {
+    rmdir "$DOWNLOAD_DIR_TMP"
+}
+trap finish EXIT
+
+# Abort the script if there are leftover files.
+# Commenting out because it's ok to overwrite the leftovers.
+# SUFFIXES="eml EML desc DESC"
+# shopt -s nullglob
+# for s in $SUFFIXES ; do
+#     if [ -n "$(trim *.$s)" ] ; then
+#         echo Error: found files with \"$s\" suffix >&2
+#         exit 1
+#     fi
+# done
+# shopt -u nullglob
 
 # Example: ask about capabilities
 # curl --user "$USER" --url "$GMAIL" --request 'CAPABILITY'
@@ -208,10 +212,10 @@ for id in $MSGIDS ; do
     echo $(startHighlight "Message ${id}...")
 
     curl --url "$INBOX;UID=${id}" --no-verbose --progress-bar --user "$USER" --output "$MSG"
-    SUBJECT=$(grep "^Subject: " "$MSG" | perl -CS -MEncode -ne 'print decode("MIME-Header", $_)')
+    SUBJECT=$(grep -m 1 "^Subject: " "$MSG" | perl -CS -MEncode -ne 'print decode("MIME-Header", $_)')
     echo $(endHighlight "${SUBJECT}")
 
-    grep -i "^From" "$MSG" | while read line ; do
+    grep -m 1 "^From: " "$MSG" | while read line ; do
         FROM_HEADER=$(echo "$line" | cut -d":" -f2 | awk -F '[<>]' '{print $2}')
         FROM_HEADER=$(trim $FROM_HEADER)
         if [ "$FROM_HEADER" != "$FROM" ] ; then
@@ -227,7 +231,7 @@ for id in $MSGIDS ; do
     munpack -f "$MSG" 2>&1 | grep -v "tempdesc.txt: File exists"
     rm -f *.desc
 
-    grep -i "^Image-Archive-Url" "$MSG" | while read line ; do
+    grep "^Image-Archive-Url: " "$MSG" | while read line ; do
         URL=$(echo "$line" | cut -d';' -f1 | cut -d' ' -f2)
         URL=$(trim $URL)
         FILE=Images.zip
@@ -238,7 +242,7 @@ for id in $MSGIDS ; do
         rm -f "$FILE"
     done
 
-    grep -i "^Remote-Attachment-Url" "$MSG" | while read line ; do
+    grep "^Remote-Attachment-Url: " "$MSG" | while read line ; do
         URL=$(echo "$line" | cut -d';' -f1 | cut -d' ' -f2)
         FILE=$(echo "$line" | cut -d';' -f2 | cut -d'=' -f2)
         wget "$URL" --no-verbose --show-progress --output-document="$FILE"
@@ -293,7 +297,5 @@ if [ -n "$MSGSEQUENCE" ] ; then
     fi
 fi
 set -i
-
-rmdir "$DOWNLOAD_DIR_TMP"
 
 echo $(highlight "Done!")
