@@ -194,6 +194,7 @@ fi
 MSGIDS=$(echo "$MSGIDS" | cut -f3- -d" ")
 MSGIDS=$(trim "$MSGIDS")
 MSGSEQUENCE=$(join_by , $MSGIDS)
+SUCCESS_SEQUENCE=""
 
 if [ -n "$MSGIDS" ] ; then
     echo $(highlight "Message IDs: $MSGIDS")
@@ -207,6 +208,7 @@ fi
 # UNIQUEIDS=$(trim "$UNIQUEIDS")
 
 for id in $MSGIDS ; do
+    ERROR_ID=0
     MSG="Message${id}.eml"
     echo " "
     echo $(startHighlight "Message ${id}...")
@@ -231,36 +233,67 @@ for id in $MSGIDS ; do
     munpack -f "$MSG" 2>&1 | grep -v "tempdesc.txt: File exists"
     rm -f *.desc
 
+    set +e
     grep "^Image-Archive-Url: " "$MSG" | while read line ; do
         URL=$(echo "$line" | cut -d';' -f1 | cut -d' ' -f2)
         URL=$(trim $URL)
         FILE=Images.zip
+
         wget "$URL" --no-verbose --show-progress --output-document="$FILE"
 #        curl --no-verbose --progress-bar --output "$FILE" "$URL"
-        echo "$FILE"
-        unzip -o "$FILE"
-        rm -f "$FILE"
-    done
+        STATUS=$?
 
+        if [ $STATUS -eq 0 ] ; then
+            echo "$FILE"
+            unzip -o "$FILE"
+        fi
+        rm -f "$FILE"
+        exit $STATUS
+    done
+    STATUS=${PIPESTATUS[1]}
+    if [ $STATUS -ne 0 ] ; then
+        ERROR_ID=$STATUS
+    fi
+    set -e
+
+    set +e
     grep "^Remote-Attachment-Url: " "$MSG" | while read line ; do
         URL=$(echo "$line" | cut -d';' -f1 | cut -d' ' -f2)
         FILE=$(echo "$line" | cut -d';' -f2 | cut -d'=' -f2)
+
         wget "$URL" --no-verbose --show-progress --output-document="$FILE"
 #        curl --no-verbose --progress-bar --output "$FILE" "$URL"
-        echo "$FILE"
-        case "$FILE" in
-            *.zip)
-                unzip -o "$FILE"
-                rm -f "$FILE"
-                ;;
-            *.ZIP)
-                unzip -o "$FILE"
-                rm -f "$FILE"
-                ;;
-        esac
+        STATUS=$?
+
+        if [ $STATUS -eq 0 ] ; then
+            echo "$FILE"
+            case "$FILE" in
+                *.zip)
+                    unzip -o "$FILE"
+                    ;;
+                *.ZIP)
+                    unzip -o "$FILE"
+                    ;;
+            esac
+        fi
+        rm -f "$FILE"
+        exit $STATUS
     done
+    STATUS=${PIPESTATUS[1]}
+    if [ $STATUS -ne 0 ] ; then
+        ERROR_ID=$STATUS
+    fi
+    set -e
 
     rm -f "$MSG"
+
+    if [ $ERROR_ID -eq 0 ] ; then
+        if [ -n "$SUCCESS_SEQUENCE" ] ; then
+            SUCCESS_SEQUENCE="$SUCCESS_SEQUENCE $id"
+        else
+            SUCCESS_SEQUENCE="$id"
+        fi
+    fi
 done
 
 shopt -s nullglob
@@ -287,15 +320,15 @@ if [[ "$MSGSEQUENCE_AFTER" != "$MSGSEQUENCE"* ]] ; then
 fi
 
 set +e
-if [ -n "$MSGSEQUENCE" ] ; then
+if [ -n "$SUCCESS_SEQUENCE" ] ; then
     echo -n Move email messages from \"$FROM\" to folder \"$MSGFOLDER\"...
-    curl --user "$USER" --url "$INBOX" --request "MOVE $MSGSEQUENCE $MSGFOLDER"
+    curl --user "$USER" --url "$INBOX" --request "MOVE $SUCCESS_SEQUENCE $MSGFOLDER"
     if [ $? != 0 ] ; then
         echo $(red "Move email messages failed, likely because the email folder \"$MSGFOLDER\" does not exist.")
     else
         echo " done"
     fi
 fi
-set -i
+set -e
 
 echo $(highlight "Done!")
