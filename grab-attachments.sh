@@ -194,7 +194,7 @@ fi
 MSGIDS=$(echo "$MSGIDS" | cut -f3- -d" ")
 MSGIDS=$(trim "$MSGIDS")
 MSGSEQUENCE=$(join_by , $MSGIDS)
-SUCCESS_SEQUENCE=""
+SUCCESS_IDS=""
 
 if [ -n "$MSGIDS" ] ; then
     echo $(highlight "Message IDs: $MSGIDS")
@@ -288,10 +288,10 @@ for id in $MSGIDS ; do
     rm -f "$MSG"
 
     if [ $ERROR_ID -eq 0 ] ; then
-        if [ -n "$SUCCESS_SEQUENCE" ] ; then
-            SUCCESS_SEQUENCE="$SUCCESS_SEQUENCE $id"
+        if [ -n "$SUCCESS_IDS" ] ; then
+            SUCCESS_IDS="$SUCCESS_IDS $id"
         else
-            SUCCESS_SEQUENCE="$id"
+            SUCCESS_IDS="$id"
         fi
     fi
 done
@@ -319,6 +319,7 @@ if [[ "$MSGSEQUENCE_AFTER" != "$MSGSEQUENCE"* ]] ; then
     exit 1
 fi
 
+SUCCESS_SEQUENCE=$(join_by , $SUCCESS_IDS)
 set +e
 if [ -n "$SUCCESS_SEQUENCE" ] ; then
     echo -n Move email messages from \"$FROM\" to folder \"$MSGFOLDER\"...
