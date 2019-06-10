@@ -270,13 +270,14 @@ for id in $MSGIDS ; do
             case "$FILE" in
                 *.zip)
                     unzip -o "$FILE"
+                    rm -f "$FILE"
                     ;;
                 *.ZIP)
                     unzip -o "$FILE"
+                    rm -f "$FILE"
                     ;;
             esac
         fi
-        rm -f "$FILE"
         exit $STATUS
     done
     STATUS=${PIPESTATUS[1]}
