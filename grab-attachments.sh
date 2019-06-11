@@ -297,15 +297,6 @@ for id in $MSGIDS ; do
     fi
 done
 
-shopt -s nullglob
-DOWNLOAD_FILES=$(trim "$DOWNLOAD_DIR_TMP"/*)
-if [ -n "$DOWNLOAD_FILES" ] ; then
-    echo -n Move attachments to \"$DOWNLOAD_DIR\" folder...
-    mv -f "$DOWNLOAD_DIR_TMP"/* "$DOWNLOAD_DIR"
-    echo " done"
-fi
-shopt -u nullglob
-
 MSGIDS_AFTER=$(curl --no-verbose --progress-bar --user "$USER" --url "$INBOX" --request "SEARCH FROM $FROM" | cut -f3- -d" ")
 MSGIDS_AFTER=$(trim "$MSGIDS")
 MSGSEQUENCE_AFTER=$(join_by , $MSGIDS)
@@ -332,5 +323,31 @@ if [ -n "$SUCCESS_SEQUENCE" ] ; then
     fi
 fi
 set -e
+
+shopt -s nullglob
+
+DOWNLOAD_FILES=$(trim "$DOWNLOAD_DIR_TMP"/*)
+if [ -n "$DOWNLOAD_FILES" ] ; then
+    echo -n Move attachments to \"$DOWNLOAD_DIR\" folder...
+    mv -f "$DOWNLOAD_DIR_TMP"/* "$DOWNLOAD_DIR"
+    echo " done"
+fi
+
+
+if [ -n "$AUTOMATOR_WORKAROUND" ] ; then
+    DDFILES=$(trim "$DOWNLOAD_DIR/"*)
+    while [ -n "$DDFILES" ] ; do
+        echo -n $(highlight "Press any key to try importing $(basename $DOWNLOAD_DIR) files to Photos again: ")
+        read line
+        DDFILES=$(trim "$DOWNLOAD_DIR/"*)
+        if [ -n "$DDFILES" ] ; then
+            mv -f "$DOWNLOAD_DIR"/* "$DOWNLOAD_DIR_TMP"
+            sleep 3
+            mv -f "$DOWNLOAD_DIR_TMP"/* "$DOWNLOAD_DIR"
+        fi
+    done
+fi
+
+shopt -u nullglob
 
 echo $(highlight "Done!")
